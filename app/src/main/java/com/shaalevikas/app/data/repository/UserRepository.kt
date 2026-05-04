@@ -1,7 +1,6 @@
 package com.shaalevikas.app.data.repository
 
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
 import com.shaalevikas.app.data.model.SchoolProfile
 import com.shaalevikas.app.data.model.User
 import kotlinx.coroutines.channels.awaitClose
@@ -16,11 +15,13 @@ class UserRepository {
 
     fun getLeaderboard(): Flow<List<User>> = callbackFlow {
         val sub = usersCol
-            .orderBy("totalPledged", Query.Direction.DESCENDING)
             .limit(50)
             .addSnapshotListener { snap, err ->
                 if (err != null) { close(err); return@addSnapshotListener }
-                val list = snap?.documents?.mapNotNull { it.toObject(User::class.java) } ?: emptyList()
+                val list = snap?.documents
+                    ?.mapNotNull { it.toObject(User::class.java) }
+                    ?.sortedByDescending { it.totalPledged }
+                    ?: emptyList()
                 trySend(list)
             }
         awaitClose { sub.remove() }
