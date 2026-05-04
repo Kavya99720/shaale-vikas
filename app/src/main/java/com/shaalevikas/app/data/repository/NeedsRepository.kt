@@ -2,7 +2,6 @@ package com.shaalevikas.app.data.repository
 
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
 import com.shaalevikas.app.data.model.Need
 import com.shaalevikas.app.data.model.NeedStatus
 import kotlinx.coroutines.channels.awaitClose
@@ -17,10 +16,12 @@ class NeedsRepository {
     fun getActiveNeeds(): Flow<List<Need>> = callbackFlow {
         val sub = needsCol
             .whereEqualTo("status", NeedStatus.ACTIVE.name)
-            .orderBy("urgency", Query.Direction.DESCENDING)
             .addSnapshotListener { snap, err ->
                 if (err != null) { close(err); return@addSnapshotListener }
-                val list = snap?.documents?.mapNotNull { it.toObject(Need::class.java) } ?: emptyList()
+                val list = snap?.documents
+                    ?.mapNotNull { it.toObject(Need::class.java) }
+                    ?.sortedByDescending { it.urgency }
+                    ?: emptyList()
                 trySend(list)
             }
         awaitClose { sub.remove() }
@@ -29,10 +30,12 @@ class NeedsRepository {
     fun getFulfilledNeeds(): Flow<List<Need>> = callbackFlow {
         val sub = needsCol
             .whereEqualTo("status", NeedStatus.FULFILLED.name)
-            .orderBy("completedAt", Query.Direction.DESCENDING)
             .addSnapshotListener { snap, err ->
                 if (err != null) { close(err); return@addSnapshotListener }
-                val list = snap?.documents?.mapNotNull { it.toObject(Need::class.java) } ?: emptyList()
+                val list = snap?.documents
+                    ?.mapNotNull { it.toObject(Need::class.java) }
+                    ?.sortedByDescending { it.completedAt }
+                    ?: emptyList()
                 trySend(list)
             }
         awaitClose { sub.remove() }
