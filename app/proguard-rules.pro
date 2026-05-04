@@ -1,0 +1,3 @@
+-keep class com.google.firebase.** { *; }
+-keep class com.shaalevikas.app.data.model.** { *; }
+-dontwarn com.google.errorprone.annotations.**
