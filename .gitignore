@@ -9,5 +9,4 @@
 .cxx
 local.properties
 *.jks
-google-services.json
 /app/src/main/assets/gemini_api_key.txt
