@@ -17,6 +17,9 @@ class AuthViewModel : ViewModel() {
     private val _userRole = MutableStateFlow<String?>(null)
     val userRole: StateFlow<String?> = _userRole
 
+    private val _isRoleLoaded = MutableStateFlow(false)
+    val isRoleLoaded: StateFlow<Boolean> = _isRoleLoaded
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
 
@@ -27,13 +30,18 @@ class AuthViewModel : ViewModel() {
     val successMessage: StateFlow<String?> = _successMessage
 
     init {
-        if (repo.currentUser != null) loadUserRole()
+        if (repo.currentUser != null) {
+            loadUserRole()
+        } else {
+            _isRoleLoaded.value = true
+        }
     }
 
     private fun loadUserRole() {
         viewModelScope.launch {
             val user = repo.getCurrentUserData()
             _userRole.value = user?.role
+            _isRoleLoaded.value = true
         }
     }
 
@@ -46,6 +54,7 @@ class AuthViewModel : ViewModel() {
                 _currentUser.value = it
                 val userData = repo.getCurrentUserData()
                 _userRole.value = userData?.role
+                _isRoleLoaded.value = true
                 onSuccess(userData?.role ?: "ALUMNI")
             }.onFailure {
                 _error.value = it.message
@@ -62,6 +71,7 @@ class AuthViewModel : ViewModel() {
             result.onSuccess {
                 _currentUser.value = it
                 _userRole.value = "ALUMNI"
+                _isRoleLoaded.value = true
                 onSuccess()
             }.onFailure {
                 _error.value = it.message
@@ -88,6 +98,7 @@ class AuthViewModel : ViewModel() {
         repo.signOut()
         _currentUser.value = null
         _userRole.value = null
+        _isRoleLoaded.value = true
     }
 
     fun clearError() { _error.value = null }

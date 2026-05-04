@@ -4,7 +4,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,8 +19,10 @@ import com.shaalevikas.app.ui.theme.Green700
 import kotlinx.coroutines.delay
 
 @Composable
-fun SplashScreen(onNavigate: () -> Unit) {
+fun SplashScreen(isRoleLoaded: Boolean, onNavigate: () -> Unit) {
+    var minDelayDone by remember { mutableStateOf(false) }
     var visible by remember { mutableStateOf(false) }
+
     val alpha by animateFloatAsState(
         targetValue = if (visible) 1f else 0f,
         animationSpec = tween(durationMillis = 800),
@@ -30,7 +32,14 @@ fun SplashScreen(onNavigate: () -> Unit) {
     LaunchedEffect(Unit) {
         visible = true
         delay(2000)
-        onNavigate()
+        minDelayDone = true
+    }
+
+    // Only navigate when BOTH the minimum display time has passed AND the role is loaded
+    LaunchedEffect(minDelayDone, isRoleLoaded) {
+        if (minDelayDone && isRoleLoaded) {
+            onNavigate()
+        }
     }
 
     Box(
@@ -43,10 +52,7 @@ fun SplashScreen(onNavigate: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.alpha(alpha)
         ) {
-            Text(
-                text = "🏫",
-                fontSize = 72.sp
-            )
+            Text(text = "🏫", fontSize = 72.sp)
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = "Shaale-Vikas",
@@ -68,6 +74,12 @@ fun SplashScreen(onNavigate: () -> Unit) {
                 fontSize = 14.sp,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(horizontal = 32.dp)
+            )
+            Spacer(modifier = Modifier.height(32.dp))
+            CircularProgressIndicator(
+                color = Color.White.copy(alpha = 0.6f),
+                strokeWidth = 2.dp,
+                modifier = Modifier.size(24.dp)
             )
         }
     }

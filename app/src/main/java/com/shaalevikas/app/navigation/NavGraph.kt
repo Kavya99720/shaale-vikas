@@ -50,11 +50,13 @@ fun NavGraph(navController: NavHostController) {
     val authViewModel: AuthViewModel = viewModel()
     val currentUser by authViewModel.currentUser.collectAsState()
     val userRole by authViewModel.userRole.collectAsState()
+    val isRoleLoaded by authViewModel.isRoleLoaded.collectAsState()
 
     NavHost(navController = navController, startDestination = Routes.SPLASH) {
 
         composable(Routes.SPLASH) {
             SplashScreen(
+                isRoleLoaded = isRoleLoaded,
                 onNavigate = {
                     if (currentUser != null) {
                         if (userRole == UserRole.ADMIN.name) {
