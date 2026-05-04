@@ -1,0 +1,71 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: check if the requester is an Admin
+    function isAdmin() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
+    }
+
+    // Helper: check if the requester is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper: check if the requester owns the document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // ─── USERS ──────────────────────────────────────────────────────────────
+    match /users/{userId} {
+      // Any authenticated user can read any user profile (needed for leaderboard)
+      allow read: if isAuthenticated();
+
+      // User can only write their own profile; Admin can write any
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ─── NEEDS ──────────────────────────────────────────────────────────────
+    match /needs/{needId} {
+      // Anyone (including guests) can read needs
+      allow read: if true;
+
+      // Only Admin can create, update, or delete needs
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ─── PLEDGES ────────────────────────────────────────────────────────────
+    match /pledges/{pledgeId} {
+      // Any authenticated user can read pledges
+      allow read: if isAuthenticated();
+
+      // Any authenticated user can create a pledge for themselves
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.amount > 0 &&
+        request.resource.data.needId is string &&
+        request.resource.data.name is string;
+
+      // Only Admin can update or delete pledges
+      allow update, delete: if isAdmin();
+    }
+
+    // ─── SCHOOL PROFILE ─────────────────────────────────────────────────────
+    match /school/{docId} {
+      // Anyone can read the school profile
+      allow read: if true;
+
+      // Only Admin can modify the school profile
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ─── FCM TOKENS ─────────────────────────────────────────────────────────
+    match /fcm_tokens/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+  }
+}
