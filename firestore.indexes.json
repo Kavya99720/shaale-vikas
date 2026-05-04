@@ -1,0 +1,44 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "needs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "urgency", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "needs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "completedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pledges",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "needId", "order": "ASCENDING" },
+        { "fieldPath": "userId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pledges",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "totalPledged", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
