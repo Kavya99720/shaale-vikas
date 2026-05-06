@@ -93,13 +93,12 @@ class NeedsViewModel : ViewModel() {
         }
     }
 
-    // Photos are optional — admin can mark fulfilled without uploading before/after photos
     fun markFulfilled(
         needId: String,
         beforeUri: Uri? = null,
         afterUri: Uri? = null,
-        onSuccess: () -> Unit,
-        onError: (String) -> Unit = { _error.value = it }
+        onError: (String) -> Unit = { _error.value = it },
+        onSuccess: () -> Unit
     ) {
         viewModelScope.launch {
             _isLoading.value = true
@@ -107,27 +106,27 @@ class NeedsViewModel : ViewModel() {
             var afterUrl = ""
 
             if (beforeUri != null) {
-                storageRepo.uploadImage(beforeUri, "gallery/before")
-                    .onSuccess { beforeUrl = it }
-                    .onFailure {
-                        _isLoading.value = false
-                        onError("Failed to upload before photo: ${it.message}")
-                        return@launch
-                    }
+                val bRes = storageRepo.uploadImage(beforeUri, "gallery/before")
+                if (bRes.isSuccess) beforeUrl = bRes.getOrThrow()
+                else {
+                    _isLoading.value = false
+                    onError("Before photo failed: ${bRes.exceptionOrNull()?.message}")
+                    return@launch
+                }
             }
             if (afterUri != null) {
-                storageRepo.uploadImage(afterUri, "gallery/after")
-                    .onSuccess { afterUrl = it }
-                    .onFailure {
-                        _isLoading.value = false
-                        onError("Failed to upload after photo: ${it.message}")
-                        return@launch
-                    }
+                val aRes = storageRepo.uploadImage(afterUri, "gallery/after")
+                if (aRes.isSuccess) afterUrl = aRes.getOrThrow()
+                else {
+                    _isLoading.value = false
+                    onError("After photo failed: ${aRes.exceptionOrNull()?.message}")
+                    return@launch
+                }
             }
 
             needsRepo.markFulfilled(needId, beforeUrl, afterUrl)
                 .onSuccess { onSuccess() }
-                .onFailure { onError(it.message ?: "Failed to mark as fulfilled.") }
+                .onFailure { onError(it.message ?: "Update failed") }
             _isLoading.value = false
         }
     }

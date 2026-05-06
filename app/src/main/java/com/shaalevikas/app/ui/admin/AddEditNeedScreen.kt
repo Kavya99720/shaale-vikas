@@ -104,7 +104,15 @@ fun AddEditNeedScreen(needId: String?, onBack: () -> Unit, onSuccess: () -> Unit
                     onClick = {
                         val bUri = beforeUri; val aUri = afterUri
                         if (bUri != null && aUri != null && needId != null) {
-                            viewModel.markFulfilled(needId, bUri, aUri) { showMarkFulfilledDialog = false; onSuccess() }
+                            viewModel.markFulfilled(
+                                needId = needId,
+                                beforeUri = bUri,
+                                afterUri = aUri,
+                                onSuccess = {
+                                    showMarkFulfilledDialog = false
+                                    onSuccess()
+                                }
+                            )
                         }
                     },
                     enabled = beforeUri != null && afterUri != null,
