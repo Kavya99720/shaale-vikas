@@ -19,7 +19,14 @@ class UserRepository {
             .addSnapshotListener { snap, err ->
                 if (err != null) { close(err); return@addSnapshotListener }
                 val list = snap?.documents
-                    ?.mapNotNull { it.toObject(User::class.java) }
+                    ?.mapNotNull { doc ->
+                        try {
+                            doc.toObject(User::class.java)
+                        } catch (e: Exception) {
+                            // Skip documents that cannot be deserialized (e.g. wrong field types)
+                            null
+                        }
+                    }
                     ?.sortedByDescending { it.totalPledged }
                     ?: emptyList()
                 trySend(list)
