@@ -56,7 +56,10 @@ data class User(
     val email: String = "",
     val role: String = UserRole.ALUMNI.name,
     val totalPledged: Double = 0.0,
-    val createdAt: Timestamp? = null
+    val createdAt: Timestamp? = null,
+    // Some documents store joinedAt as a Long (epoch ms) instead of Timestamp
+    // Keeping as Long? prevents crash when the type doesn't match
+    val joinedAt: Long? = null
 ) {
     @get:Exclude
     val badgeTier: BadgeTier
