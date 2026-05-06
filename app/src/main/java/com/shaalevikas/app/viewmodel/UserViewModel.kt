@@ -20,8 +20,17 @@ class UserViewModel : ViewModel() {
     private val _schoolProfile = MutableStateFlow<SchoolProfile?>(null)
     val schoolProfile: StateFlow<SchoolProfile?> = _schoolProfile
 
+    private val _isSchoolLoading = MutableStateFlow(true)
+    val isSchoolLoading: StateFlow<Boolean> = _isSchoolLoading
+
     private val _currentUserData = MutableStateFlow<User?>(null)
     val currentUserData: StateFlow<User?> = _currentUserData
+
+    private val _isSaving = MutableStateFlow(false)
+    val isSaving: StateFlow<Boolean> = _isSaving
+
+    private val _saveError = MutableStateFlow<String?>(null)
+    val saveError: StateFlow<String?> = _saveError
 
     init {
         loadLeaderboard()
@@ -34,9 +43,25 @@ class UserViewModel : ViewModel() {
             .launchIn(viewModelScope)
     }
 
-    private fun loadSchoolProfile() {
+    fun loadSchoolProfile() {
         viewModelScope.launch {
+            _isSchoolLoading.value = true
             _schoolProfile.value = repo.getSchoolProfile()
+            _isSchoolLoading.value = false
+        }
+    }
+
+    fun saveSchoolProfile(profile: SchoolProfile, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            _isSaving.value = true
+            _saveError.value = null
+            repo.saveSchoolProfile(profile)
+                .onSuccess {
+                    _schoolProfile.value = profile
+                    onSuccess()
+                }
+                .onFailure { _saveError.value = it.message }
+            _isSaving.value = false
         }
     }
 
@@ -45,4 +70,6 @@ class UserViewModel : ViewModel() {
             _currentUserData.value = repo.getUserById(userId)
         }
     }
+
+    fun clearSaveError() { _saveError.value = null }
 }
