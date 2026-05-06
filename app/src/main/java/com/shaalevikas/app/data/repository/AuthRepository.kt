@@ -3,7 +3,6 @@ package com.shaalevikas.app.data.repository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.messaging.FirebaseMessaging
 import com.shaalevikas.app.data.model.User
 import com.shaalevikas.app.data.model.UserRole
 import kotlinx.coroutines.tasks.await
@@ -17,7 +16,6 @@ class AuthRepository {
     suspend fun login(email: String, password: String): Result<FirebaseUser> {
         return try {
             val result = auth.signInWithEmailAndPassword(email, password).await()
-            subscribeToTopic()
             Result.success(result.user!!)
         } catch (e: Exception) {
             Result.failure(e)
@@ -35,7 +33,6 @@ class AuthRepository {
                 role = UserRole.ALUMNI.name
             )
             db.collection("users").document(firebaseUser.uid).set(user).await()
-            subscribeToTopic()
             Result.success(firebaseUser)
         } catch (e: Exception) {
             Result.failure(e)
@@ -60,12 +57,5 @@ class AuthRepository {
         }
     }
 
-    fun signOut() {
-        FirebaseMessaging.getInstance().unsubscribeFromTopic("shaale_vikas_needs")
-        auth.signOut()
-    }
-
-    private fun subscribeToTopic() {
-        FirebaseMessaging.getInstance().subscribeToTopic("shaale_vikas_needs")
-    }
+    fun signOut() = auth.signOut()
 }
