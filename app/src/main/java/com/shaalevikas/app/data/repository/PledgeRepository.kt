@@ -16,13 +16,6 @@ class PledgeRepository {
 
     suspend fun submitPledge(pledge: Pledge): Result<Unit> {
         return try {
-            val existing = pledgesCol
-                .whereEqualTo("needId", pledge.needId)
-                .whereEqualTo("userId", pledge.userId)
-                .get().await()
-            if (!existing.isEmpty) {
-                return Result.failure(Exception("You have already pledged for this need."))
-            }
             val newPledge = pledge.copy(createdAt = Timestamp.now())
             pledgesCol.add(newPledge).await()
 
