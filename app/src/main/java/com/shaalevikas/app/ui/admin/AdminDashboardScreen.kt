@@ -1,5 +1,8 @@
 package com.shaalevikas.app.ui.admin
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -33,16 +36,22 @@ fun AdminDashboardScreen(
     val viewModel: NeedsViewModel = viewModel()
     val activeNeeds by viewModel.activeNeeds.collectAsState()
     val fulfilledNeeds by viewModel.fulfilledNeeds.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
     var selectedTab by remember { mutableIntStateOf(0) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var needToDelete by remember { mutableStateOf<Need?>(null) }
+    var needToFulfill by remember { mutableStateOf<Need?>(null) }
 
     if (showLogoutDialog) {
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
             title = { Text("Sign Out") },
             text = { Text("Are you sure you want to sign out?") },
-            confirmButton = { TextButton(onClick = { showLogoutDialog = false; onLogout() }) { Text("Sign Out", color = MaterialTheme.colorScheme.error) } },
+            confirmButton = {
+                TextButton(onClick = { showLogoutDialog = false; onLogout() }) {
+                    Text("Sign Out", color = MaterialTheme.colorScheme.error)
+                }
+            },
             dismissButton = { TextButton(onClick = { showLogoutDialog = false }) { Text("Cancel") } }
         )
     }
@@ -62,6 +71,22 @@ fun AdminDashboardScreen(
         )
     }
 
+    needToFulfill?.let { need ->
+        MarkFulfilledDialog(
+            need = need,
+            isLoading = isLoading,
+            onConfirm = { beforeUri, afterUri ->
+                viewModel.markFulfilled(
+                    needId = need.id,
+                    beforeUri = beforeUri,
+                    afterUri = afterUri,
+                    onSuccess = { needToFulfill = null }
+                )
+            },
+            onDismiss = { needToFulfill = null }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -73,8 +98,12 @@ fun AdminDashboardScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Green700),
                 actions = {
-                    IconButton(onClick = onGalleryClick) { Icon(Icons.Default.PhotoLibrary, null, tint = Color.White) }
-                    IconButton(onClick = { showLogoutDialog = true }) { Icon(Icons.Default.Logout, null, tint = Color.White) }
+                    IconButton(onClick = onGalleryClick) {
+                        Icon(Icons.Default.PhotoLibrary, null, tint = Color.White)
+                    }
+                    IconButton(onClick = { showLogoutDialog = true }) {
+                        Icon(Icons.Default.Logout, null, tint = Color.White)
+                    }
                 }
             )
         },
@@ -85,17 +114,29 @@ fun AdminDashboardScreen(
         }
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 StatChip(label = "Active", count = activeNeeds.size, color = Green700)
                 StatChip(label = "Fulfilled", count = fulfilledNeeds.size, color = Color.Gray)
                 StatChip(label = "Total ₹", count = activeNeeds.sumOf { it.amountPledged }.toInt(), color = Amber700)
             }
+
             TabRow(selectedTabIndex = selectedTab, containerColor = Color.White) {
                 Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }) {
-                    Text("Active (${activeNeeds.size})", modifier = Modifier.padding(vertical = 12.dp), fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal)
+                    Text(
+                        "Active (${activeNeeds.size})",
+                        modifier = Modifier.padding(vertical = 12.dp),
+                        fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal
+                    )
                 }
                 Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }) {
-                    Text("Fulfilled (${fulfilledNeeds.size})", modifier = Modifier.padding(vertical = 12.dp), fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal)
+                    Text(
+                        "Fulfilled (${fulfilledNeeds.size})",
+                        modifier = Modifier.padding(vertical = 12.dp),
+                        fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal
+                    )
                 }
             }
 
@@ -106,16 +147,24 @@ fun AdminDashboardScreen(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(Icons.Default.Inbox, null, modifier = Modifier.size(56.dp), tint = Color.LightGray)
                         Spacer(Modifier.height(12.dp))
-                        Text(if (selectedTab == 0) "No active needs. Tap + to add one." else "No fulfilled needs yet.", color = Color.Gray)
+                        Text(
+                            if (selectedTab == 0) "No active needs. Tap + to add one."
+                            else "No fulfilled needs yet.",
+                            color = Color.Gray
+                        )
                     }
                 }
             } else {
-                LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                LazyColumn(
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
                     items(displayNeeds, key = { it.id }) { need ->
                         AdminNeedCard(
                             need = need,
                             onEdit = { onEditNeed(need.id) },
-                            onDelete = { needToDelete = need }
+                            onDelete = { needToDelete = need },
+                            onMarkFulfilled = { needToFulfill = need }
                         )
                     }
                 }
@@ -125,9 +174,83 @@ fun AdminDashboardScreen(
 }
 
 @Composable
+fun MarkFulfilledDialog(
+    need: Need,
+    isLoading: Boolean,
+    onConfirm: (beforeUri: Uri?, afterUri: Uri?) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var beforeUri by remember { mutableStateOf<Uri?>(null) }
+    var afterUri by remember { mutableStateOf<Uri?>(null) }
+    var dialogError by remember { mutableStateOf<String?>(null) }
+
+    val beforePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> beforeUri = uri }
+    val afterPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> afterUri = uri }
+
+    AlertDialog(
+        onDismissRequest = { if (!isLoading) onDismiss() },
+        title = { Text("Mark as Fulfilled", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "Mark \"${need.title}\" as fulfilled?\nPhotos are optional but recommended.",
+                    fontSize = 13.sp,
+                    color = Color.Gray
+                )
+
+                OutlinedButton(
+                    onClick = { beforePicker.launch("image/*") },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.PhotoCamera, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (beforeUri != null) "Before photo selected ✓" else "Before Photo (optional)")
+                }
+
+                OutlinedButton(
+                    onClick = { afterPicker.launch("image/*") },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.PhotoCamera, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (afterUri != null) "After photo selected ✓" else "After Photo (optional)")
+                }
+
+                dialogError?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(beforeUri, afterUri) },
+                enabled = !isLoading,
+                colors = ButtonDefaults.buttonColors(containerColor = Green700)
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Saving...")
+                } else {
+                    Icon(Icons.Default.CheckCircle, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Mark Fulfilled")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { if (!isLoading) onDismiss() }) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
 fun StatChip(label: String, count: Int, color: Color) {
     Surface(color = color.copy(alpha = 0.1f), shape = RoundedCornerShape(8.dp)) {
-        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             Text("$count", fontWeight = FontWeight.Bold, color = color, fontSize = 16.sp)
             Text(label, fontSize = 11.sp, color = color)
         }
@@ -135,23 +258,37 @@ fun StatChip(label: String, count: Int, color: Color) {
 }
 
 @Composable
-fun AdminNeedCard(need: Need, onEdit: () -> Unit, onDelete: () -> Unit) {
+fun AdminNeedCard(
+    need: Need,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onMarkFulfilled: () -> Unit
+) {
     Card(shape = RoundedCornerShape(12.dp), elevation = CardDefaults.cardElevation(2.dp)) {
         Column(modifier = Modifier.padding(14.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(need.title, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        need.title,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
                     Spacer(Modifier.height(2.dp))
                     Text(need.category, color = Green700, fontSize = 12.sp)
                 }
                 Row {
                     if (need.status == NeedStatus.ACTIVE.name) {
                         IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
-                            Icon(Icons.Default.Edit, null, tint = Green700, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Default.Edit, "Edit", tint = Green700, modifier = Modifier.size(20.dp))
+                        }
+                        IconButton(onClick = onMarkFulfilled, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Default.CheckCircle, "Mark Fulfilled", tint = Amber700, modifier = Modifier.size(20.dp))
                         }
                     }
                     IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+                        Icon(Icons.Default.Delete, "Delete", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
                     }
                 }
             }
@@ -166,6 +303,19 @@ fun AdminNeedCard(need: Need, onEdit: () -> Unit, onDelete: () -> Unit) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("${need.progressPercent.toInt()}% funded", fontSize = 12.sp, color = Green700)
                 Text("₹${need.amountPledged.toLong()} / ₹${need.costEstimate.toLong()}", fontSize = 12.sp, color = Color.Gray)
+            }
+            if (need.status == NeedStatus.ACTIVE.name) {
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = onMarkFulfilled,
+                    modifier = Modifier.fillMaxWidth().height(36.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Green700),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                ) {
+                    Icon(Icons.Default.CheckCircle, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Mark as Fulfilled", fontSize = 13.sp)
+                }
             }
         }
     }
