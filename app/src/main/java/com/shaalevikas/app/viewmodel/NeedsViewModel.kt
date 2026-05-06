@@ -93,18 +93,41 @@ class NeedsViewModel : ViewModel() {
         }
     }
 
-    fun markFulfilled(needId: String, beforeUri: Uri, afterUri: Uri, onSuccess: () -> Unit) {
+    // Photos are optional — admin can mark fulfilled without uploading before/after photos
+    fun markFulfilled(
+        needId: String,
+        beforeUri: Uri? = null,
+        afterUri: Uri? = null,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit = { _error.value = it }
+    ) {
         viewModelScope.launch {
             _isLoading.value = true
-            val beforeResult = storageRepo.uploadImage(beforeUri, "gallery/before")
-            val afterResult = storageRepo.uploadImage(afterUri, "gallery/after")
-            if (beforeResult.isSuccess && afterResult.isSuccess) {
-                needsRepo.markFulfilled(needId, beforeResult.getOrThrow(), afterResult.getOrThrow())
-                    .onSuccess { onSuccess() }
-                    .onFailure { _error.value = it.message }
-            } else {
-                _error.value = "Failed to upload photos."
+            var beforeUrl = ""
+            var afterUrl = ""
+
+            if (beforeUri != null) {
+                storageRepo.uploadImage(beforeUri, "gallery/before")
+                    .onSuccess { beforeUrl = it }
+                    .onFailure {
+                        _isLoading.value = false
+                        onError("Failed to upload before photo: ${it.message}")
+                        return@launch
+                    }
             }
+            if (afterUri != null) {
+                storageRepo.uploadImage(afterUri, "gallery/after")
+                    .onSuccess { afterUrl = it }
+                    .onFailure {
+                        _isLoading.value = false
+                        onError("Failed to upload after photo: ${it.message}")
+                        return@launch
+                    }
+            }
+
+            needsRepo.markFulfilled(needId, beforeUrl, afterUrl)
+                .onSuccess { onSuccess() }
+                .onFailure { onError(it.message ?: "Failed to mark as fulfilled.") }
             _isLoading.value = false
         }
     }
