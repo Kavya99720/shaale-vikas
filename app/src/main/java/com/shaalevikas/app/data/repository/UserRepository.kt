@@ -36,6 +36,16 @@ class UserRepository {
         }
     }
 
+    suspend fun saveSchoolProfile(profile: SchoolProfile): Result<Unit> {
+        return try {
+            val docId = if (profile.id.isNotEmpty()) profile.id else "main"
+            schoolCol.document(docId).set(profile.copy(id = docId)).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun getUserById(userId: String): User? {
         return try {
             usersCol.document(userId).get().await().toObject(User::class.java)

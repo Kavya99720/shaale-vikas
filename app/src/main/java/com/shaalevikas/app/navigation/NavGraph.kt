@@ -156,7 +156,10 @@ fun NavGraph(navController: NavHostController) {
         }
 
         composable(Routes.SCHOOL) {
-            SchoolProfileScreen(onBack = { navController.popBackStack() })
+            SchoolProfileScreen(
+                isAdmin = userRole == UserRole.ADMIN.name,
+                onBack = { navController.popBackStack() }
+            )
         }
 
         composable(Routes.ADMIN_DASHBOARD) {
